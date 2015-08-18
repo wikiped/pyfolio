@@ -52,7 +52,8 @@ install_reqs = [
     'wsgiref>=0.1.2']
 
 extras_reqs = {
-    'bayesian': ['pymc3']
+    'bayesian': ['pymc3'],
+    'fancy': ['qgrid']
 }
 
 test_reqs = ['nose>=1.3.7', 'nose-parameterized>=0.5.0', 'runipy>=0.1.3']

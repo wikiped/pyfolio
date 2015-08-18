@@ -476,7 +476,8 @@ def plot_drawdown_underwater(returns, ax=None, **kwargs):
     return ax
 
 
-def show_perf_stats(returns, benchmark_rets, live_start_date=None):
+def show_perf_stats(returns, benchmark_rets, live_start_date=None,
+                    qgrid=True):
     """Prints some performance metrics of the strategy.
 
     - Shows amount of time the strategy has been run in backtest and
@@ -490,13 +491,14 @@ def show_perf_stats(returns, benchmark_rets, live_start_date=None):
     returns : pd.Series
         Daily returns of the strategy, noncumulative.
          - See full explanation in tears.create_full_tear_sheet.
-    live_start_date : datetime, optional
-        The point in time when the strategy began live trading, after
-        its backtest period.
     benchmark_rets : pd.Series
         Daily noncumulative returns of the benchmark.
          - This is in the same style as returns.
-
+    live_start_date : datetime, optional
+        The point in time when the strategy began live trading, after
+        its backtest period.
+    qgrid : bool, optional
+        Plot summary table using qgrid, requires qgrid.
     """
 
     if live_start_date is not None:
@@ -540,7 +542,18 @@ def show_perf_stats(returns, benchmark_rets, live_start_date=None):
         perf_stats = perf_stats.join(perf_stats_all,
                                      how='inner')
 
-    print(perf_stats)
+    if qgrid:
+        try:
+            from qgrid import show_grid
+            show_grid(perf_stats)
+        except ImportError as e:
+            warnings.warn(
+                'Could not import qgrid: {}\n'
+                'Defaulting to simple print.'.format(e),
+                ImportWarning)
+            print(perf_stats)
+    else:
+        print(perf_stats)
 
 
 def plot_rolling_returns(
