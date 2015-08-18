@@ -535,6 +535,7 @@ def show_perf_stats(returns, benchmark_rets, live_start_date=None,
     perf_stats.loc['alpha'] = perf_stats_ab[0]
     perf_stats.loc['beta'] = perf_stats_ab[1]
     perf_stats.columns = ['Backtest']
+    perf_stats.index.name = 'statistic'
 
     if live_start_date is not None:
         perf_stats = perf_stats.join(perf_stats_live,
@@ -545,7 +546,7 @@ def show_perf_stats(returns, benchmark_rets, live_start_date=None,
     if qgrid:
         try:
             from qgrid import show_grid
-            show_grid(perf_stats)
+            show_grid(perf_stats, remote_js=True)._ipython_display_()
         except ImportError as e:
             warnings.warn(
                 'Could not import qgrid: {}\n'
