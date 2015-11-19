@@ -39,6 +39,8 @@ import matplotlib.gridspec as gridspec
 import seaborn as sns
 from time import time
 
+from bokeh.plotting import figure, output_file, show, output_notebook
+
 
 def timer(msg_body, previous_time):
     current_time = time()
@@ -128,7 +130,8 @@ def create_full_tear_sheet(returns, positions=None, transactions=None,
         If True, set default plotting style context.
          - See plotting.context().
     """
-
+    output_notebook()
+    
     if benchmark_rets is None:
         benchmark_rets = utils.get_symbol_rets('SPY')
 
