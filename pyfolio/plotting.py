@@ -33,6 +33,9 @@ from .utils import APPROX_BDAYS_PER_MONTH
 
 from functools import wraps
 
+from bokeh.plotting import figure, show
+from bokeh.models import Range1d
+
 
 def plotting_context(func):
     """Decorator to set plotting context during function call."""
@@ -577,26 +580,10 @@ def plot_rolling_returns(
         The axes that were plotted on.
 
 """
-    def draw_cone(returns, num_stdev, live_start_date, ax):
-        cone_df = timeseries.cone_rolling(
-            returns,
-            num_stdev=num_stdev,
-            cone_fit_end_date=live_start_date)
 
-        cone_in_sample = cone_df[cone_df.index < live_start_date]
-        cone_out_of_sample = cone_df[cone_df.index > live_start_date]
-        cone_out_of_sample = cone_out_of_sample[
-            cone_out_of_sample.index < returns.index[-1]]
 
-        ax.fill_between(cone_out_of_sample.index,
-                        cone_out_of_sample.sd_down,
-                        cone_out_of_sample.sd_up,
-                        color='steelblue', alpha=0.25)
-
-        return cone_in_sample, cone_out_of_sample
-
-    if ax is None:
-        ax = plt.gca()
+    # if ax is None:
+    #     ax = plt.gca()
 
     if volatility_match and factor_returns is None:
         raise ValueError('volatility_match requires passing of'
@@ -607,27 +594,38 @@ def plot_rolling_returns(
 
     df_cum_rets = timeseries.cum_returns(returns, 1.0)
 
-    y_axis_formatter = FuncFormatter(utils.one_dec_places)
-    ax.yaxis.set_major_formatter(FuncFormatter(y_axis_formatter))
+    # y_axis_formatter = FuncFormatter(utils.one_dec_places)
+    # ax.yaxis.set_major_formatter(FuncFormatter(y_axis_formatter))
+
+    ax = figure(x_axis_type='datetime', logo=None, width=950, height=700,
+                title="Cumulative Returns", 
+                title_text_font_size='15pt')
 
     if factor_returns is not None:
-        timeseries.cum_returns(factor_returns[df_cum_rets.index], 1.0).plot(
-            lw=2, color='gray', label=factor_returns.name, alpha=0.60,
-            ax=ax, **kwargs)
+        cum_factor_returns = timeseries.cum_returns(factor_returns[df_cum_rets.index], 1.0)
+        # timeseries.cum_returns(factor_returns[df_cum_rets.index], 1.0).plot(
+        #     lw=2, color='gray', label=factor_returns.name, alpha=0.60,
+        #     ax=ax, **kwargs)
+        ax.line(cum_factor_returns.index.values, cum_factor_returns, line_width=2, alpha=0.6, color='gray', legend=factor_returns.name)
+    
     if live_start_date is not None:
         live_start_date = utils.get_utc_timestamp(live_start_date)
 
     if (live_start_date is None) or (df_cum_rets.index[-1] <=
                                      live_start_date):
-        df_cum_rets.plot(lw=3, color='forestgreen', alpha=0.6,
-                         label='Backtest', ax=ax, **kwargs)
+        # df_cum_rets.plot(lw=3, color='forestgreen', alpha=0.6,
+        #                  label='Backtest', ax=ax, **kwargs)
+        ax.line(df_cum_rets.index.values, df_cum_rets, line_width=3, alpha=0.6, color='forestgreen', legend='Backtest')
     else:
-        df_cum_rets[:live_start_date].plot(
-            lw=3, color='forestgreen', alpha=0.6,
-            label='Backtest', ax=ax, **kwargs)
-        df_cum_rets[live_start_date:].plot(
-            lw=4, color='red', alpha=0.6,
-            label='Live', ax=ax, **kwargs)
+        ax.line(df_cum_rets[:live_start_date].index.values, df_cum_rets[:live_start_date], line_width=3, alpha=0.6, color='forestgreen', legend='Backtest')
+        ax.line(df_cum_rets[live_start_date:].index.values, df_cum_rets[live_start_date:], line_width=4, alpha=0.6, color='red', legend='Live')
+
+        # df_cum_rets[:live_start_date].plot(
+        #     lw=3, color='forestgreen', alpha=0.6,
+        #     label='Backtest', ax=ax, **kwargs)
+        # df_cum_rets[live_start_date:].plot(
+        #     lw=4, color='red', alpha=0.6,
+        #     label='Live', ax=ax, **kwargs)
 
         if cone_std is not None:
             # check to see if cone_std was passed as a single value and,
@@ -636,34 +634,57 @@ def plot_rolling_returns(
                 cone_std = [cone_std]
 
             for cone_i in cone_std:
-                cone_in_sample, cone_out_of_sample = draw_cone(
+                cone_df = timeseries.cone_rolling(
                     returns,
-                    cone_i,
-                    live_start_date,
-                    ax)
+                    num_stdev=cone_i,
+                    cone_fit_end_date=live_start_date)
 
-            cone_in_sample['line'].plot(
-                ax=ax,
-                ls='--',
-                label='Backtest trend',
-                lw=2,
-                color='forestgreen',
-                alpha=0.7,
-                **kwargs)
-            cone_out_of_sample['line'].plot(
-                ax=ax,
-                ls='--',
-                label='Predicted trend',
-                lw=2,
-                color='red',
-                alpha=0.7,
-                **kwargs)
+                cone_in_sample = cone_df[cone_df.index < live_start_date]
+                cone_out_of_sample = cone_df[cone_df.index > live_start_date]
+                cone_out_of_sample = cone_out_of_sample[
+                    cone_out_of_sample.index < returns.index[-1]]
+                # import pdb; pdb.set_trace()
+                y_cone = np.concatenate([cone_out_of_sample.sd_up.values, cone_out_of_sample.sd_down.values])
+                x_cone = np.concatenate([cone_out_of_sample.index.values, cone_out_of_sample.index.values])
+                last_up = cone_out_of_sample.sd_up.values[-1]
+                last_down = cone_out_of_sample.sd_down.values[-1]
+                y_cone = np.concatenate([y_cone,  [(((last_up - last_down)/2) + last_down)]])
+                x_cone = np.concatenate([x_cone, [(cone_out_of_sample.index.values[-1])]])
+                # import pdb; pdb.set_trace()
+                ax.patch(x_cone, y_cone, color='steelblue', alpha=0.25)
 
-    ax.axhline(1.0, linestyle='--', color='black', lw=2)
-    ax.set_ylabel('Cumulative returns')
-    ax.set_title('Cumulative Returns')
-    ax.legend(loc=legend_loc)
-    ax.set_xlabel('')
+
+        # ax.fill_between(cone_out_of_sample.index,
+        #                 cone_out_of_sample.sd_down,
+        #                 cone_out_of_sample.sd_up,
+        #                 color='steelblue', alpha=0.25)
+
+
+        ax.line(cone_in_sample['line'].index.values, cone_in_sample['line'], line_width=2, line_dash='dashed', color='forestgreen', alpha=.7, label='Backtest trend')
+        ax.line(cone_out_of_sample['line'].index.values, cone_out_of_sample['line'], line_width=2, line_dash='dashed', color='red', alpha=.7, label='Backtest trend')
+        ax.ray(x=[returns.index[0]], y=[1], length=0, angle=0, line_width=2, color='black')
+    #         cone_in_sample['line'].plot(
+    #             ax=ax,
+    #             ls='--',
+    #             label='Backtest trend',
+    #             lw=2,
+    #             color='forestgreen',
+    #             alpha=0.7,
+    #             **kwargs)
+    #         cone_out_of_sample['line'].plot(
+    #             ax=ax,
+    #             ls='--',
+    #             label='Predicted trend',
+    #             lw=2,
+    #             color='red',
+    #             alpha=0.7,
+    #             **kwargs)
+
+    # ax.axhline(1.0, linestyle='--', color='black', lw=2)
+    # ax.set_ylabel('Cumulative returns')
+    # ax.set_title('Cumulative Returns')
+    # ax.legend(loc=legend_loc)
+    # ax.set_xlabel('')
 
     return ax
 
@@ -694,28 +715,48 @@ def plot_rolling_beta(returns, factor_returns, legend_loc='best',
         The axes that were plotted on.
     """
 
-    if ax is None:
-        ax = plt.gca()
+    # if ax is None:
+    #     ax = plt.gca()
 
-    y_axis_formatter = FuncFormatter(utils.one_dec_places)
-    ax.yaxis.set_major_formatter(FuncFormatter(y_axis_formatter))
+    # y_axis_formatter = FuncFormatter(utils.one_dec_places)
+    # ax.yaxis.set_major_formatter(FuncFormatter(y_axis_formatter))
 
-    ax.set_title("Rolling Portfolio Beta to " + factor_returns.name)
-    ax.set_ylabel('Beta')
+    # ax.set_title("Rolling Portfolio Beta to " + factor_returns.name)
+    # ax.set_ylabel('Beta')
     rb_1 = timeseries.rolling_beta(
         returns, factor_returns, rolling_window=APPROX_BDAYS_PER_MONTH * 6)
-    rb_1.plot(color='steelblue', lw=3, alpha=0.6, ax=ax, **kwargs)
+
+    # rb_1.plot(color='steelblue', lw=3, alpha=0.6, ax=ax, **kwargs)
     rb_2 = timeseries.rolling_beta(
         returns, factor_returns, rolling_window=APPROX_BDAYS_PER_MONTH * 12)
-    rb_2.plot(color='grey', lw=3, alpha=0.4, ax=ax, **kwargs)
-    ax.set_ylim((-2.5, 2.5))
-    ax.axhline(rb_1.mean(), color='steelblue', linestyle='--', lw=3)
-    ax.axhline(0.0, color='black', linestyle='-', lw=2)
+    # rb_2.plot(color='grey', lw=3, alpha=0.4, ax=ax, **kwargs)
 
-    ax.set_xlabel('')
-    ax.legend(['6-mo',
-               '12-mo'],
-              loc=legend_loc)
+    # import pdb; pdb.set_trace()
+    dt_min = rb_1.index.values[0]
+    dt_max = rb_1.index.values[-1]
+
+    ax = figure(x_axis_type='datetime', logo=None, width=950, height=300,
+                title="Rolling Portfolio Beta to " + factor_returns.name, 
+                title_text_font_size='15pt')
+    
+    ax.line(rb_1.index.values, rb_1, line_width=3, alpha=0.7, color='steelblue', legend='6-mo')
+    ax.line(rb_2.index.values, rb_2, line_width=3, alpha=0.7, color='grey', legend='12-mo')
+
+    ax.ray(x=[dt_min], y=[rb_1.mean()], length=0, angle=0, line_width=2, line_dash='dashed', color='steelblue')
+    ax.ray(x=[dt_min], y=[0], length=0, angle=0, line_width=2, color='black')
+    
+    ax.set(x_range=Range1d(dt_min, dt_max), y_range=Range1d(-2.5, 2.5))
+
+
+
+    # ax.set_ylim((-2.5, 2.5))
+    # ax.axhline(rb_1.mean(), color='steelblue', linestyle='--', lw=3)
+    # ax.axhline(0.0, color='black', linestyle='-', lw=2)
+
+    # # ax.set_xlabel('')
+    # ax.legend(['6-mo',
+    #            '12-mo'],
+    #           loc=legend_loc)
     return ax
 
 
@@ -744,30 +785,44 @@ def plot_rolling_sharpe(returns, rolling_window=APPROX_BDAYS_PER_MONTH * 6,
         The axes that were plotted on.
     """
 
-    if ax is None:
-        ax = plt.gca()
+    # if ax is None:
+    #     ax = plt.gca()
 
-    y_axis_formatter = FuncFormatter(utils.one_dec_places)
-    ax.yaxis.set_major_formatter(FuncFormatter(y_axis_formatter))
+    # y_axis_formatter = FuncFormatter(utils.one_dec_places)
+    # ax.yaxis.set_major_formatter(FuncFormatter(y_axis_formatter))
 
     rolling_sharpe_ts = timeseries.rolling_sharpe(
         returns, rolling_window)
-    rolling_sharpe_ts.plot(alpha=.7, lw=3, color='orangered', ax=ax,
-                           **kwargs)
+    # rolling_sharpe_ts.plot(alpha=.7, lw=3, color='orangered', ax=ax,
+    #                        **kwargs)
 
-    ax.set_title('Rolling Sharpe ratio (6-month)')
-    ax.axhline(
-        rolling_sharpe_ts.mean(),
-        color='steelblue',
-        linestyle='--',
-        lw=3)
-    ax.axhline(0.0, color='black', linestyle='-', lw=3)
+    dt_min = rolling_sharpe_ts.index.values[0]
+    dt_max = rolling_sharpe_ts.index.values[-1]
 
-    ax.set_ylim((-3.0, 6.0))
-    ax.set_ylabel('Sharpe ratio')
-    ax.set_xlabel('')
-    ax.legend(['Sharpe', 'Average'],
-              loc=legend_loc)
+    ax = figure(x_axis_type='datetime', logo=None, width=950, height=300,
+                title="Rolling Sharpe ratio (6-month)", 
+                title_text_font_size='15pt')
+    
+    ax.line(rolling_sharpe_ts.index.values, rolling_sharpe_ts, line_width=3, alpha=0.7, color='orangered', legend='Sharpe Ratio')
+
+    ax.ray(x=[dt_min], y=[rolling_sharpe_ts.mean()], length=0, angle=0, line_width=2, line_dash='dashed', color='steelblue', legend='Average')
+    ax.ray(x=[dt_min], y=[0], length=0, angle=0, line_width=2, color='black')
+    
+    ax.set(x_range=Range1d(dt_min, dt_max), y_range=Range1d(-3.0, 6.0))
+
+    # ax.set_title('Rolling Sharpe ratio (6-month)')
+    # ax.axhline(
+    #     rolling_sharpe_ts.mean(),
+    #     color='steelblue',
+    #     linestyle='--',
+    #     lw=3)
+    # ax.axhline(0.0, color='black', linestyle='-', lw=3)
+
+    # ax.set_ylim((-3.0, 6.0))
+    # ax.set_ylabel('Sharpe ratio')
+    # ax.set_xlabel('')
+    # ax.legend(['Sharpe', 'Average'],
+    #           loc=legend_loc)
     return ax
 
 
