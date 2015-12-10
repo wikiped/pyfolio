@@ -182,7 +182,7 @@ transactions.index = transactions.index.tz_localize(&quot;UTC&quot;)
 gross_lev.index = gross_lev.index.tz_localize(&quot;UTC&quot;)
 </code></pre>
 
-<pre><code class="python">pf.create_full_tear_sheet(returns, positions, transactions, gross_lev=gross_lev, slippage=0)
+<pre><code class="python">pf.create_full_tear_sheet(returns, positions, transactions, gross_lev=gross_lev, slippage=0, live_start_date, round)
 </code></pre>
 
 <pre><code>Entire data start date: 2004-01-09
