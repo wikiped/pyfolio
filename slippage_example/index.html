@@ -166,6 +166,10 @@
 import pyfolio as pf
 import gzip
 import pandas as pd
+import pymc3 as pm
+</code></pre>
+
+<pre><code class="python">pm?
 </code></pre>
 
 <pre><code class="python">transactions = pd.read_csv(gzip.open('../tests/test_data/test_txn.csv.gz'),
@@ -180,30 +184,45 @@ returns.index = returns.index.tz_localize(&quot;UTC&quot;)
 positions.index = positions.index.tz_localize(&quot;UTC&quot;)
 transactions.index = transactions.index.tz_localize(&quot;UTC&quot;)
 gross_lev.index = gross_lev.index.tz_localize(&quot;UTC&quot;)
+
+sect_map = {'COST': 'Consumer Goods', 
+            'INTC': 'Technology', 
+            'CERN': 'Healthcare', 
+            'GPS': 'Technology',
+            'MMM': 'Construction', 
+            'DELL': 'Technology', 
+            'AMD': 'Technology'}
 </code></pre>
 
-<pre><code class="python">pf.create_full_tear_sheet(returns, positions, transactions, gross_lev=gross_lev, slippage=0)
+<pre><code class="python">reload(pf.tears)
+</code></pre>
+
+<pre><code>&lt;module 'pyfolio.tears' from '/Users/acampbell/repo/pyfolio/pyfolio/tears.pyc'&gt;
+</code></pre>
+<pre><code class="python">pf.create_full_tear_sheet(returns, positions, transactions, gross_lev=gross_lev, 
+                          slippage=0, sector_mappings=sect_map, live_start_date='2009-9-1', bayesian=True)
 </code></pre>
 
 <pre><code>Entire data start date: 2004-01-09
 Entire data end date: 2009-12-31
 
 
-Backtest Months: 71
-                   Backtest
-annual_return          0.12
-annual_volatility      0.26
-sharpe_ratio           0.45
-calmar_ratio           0.20
-stability              0.00
-max_drawdown          -0.60
-omega_ratio            1.09
-sortino_ratio          0.66
-skewness               0.14
-kurtosis               5.88
-information_ratio      0.03
-alpha                  0.08
-beta                   0.83
+Out-of-Sample Months: 4
+Backtest Months: 67
+                   Backtest  Out_of_Sample  All_History
+annual_return          0.07           0.44         0.09
+annual_volatility      0.27           0.21         0.26
+sharpe_ratio           0.40           1.83         0.45
+calmar_ratio           0.12           6.20         0.15
+stability              0.05           0.41         0.00
+max_drawdown          -0.60          -0.07        -0.60
+omega_ratio            1.07           1.35         1.09
+sortino_ratio          0.58           2.72         0.66
+skewness               0.16          -0.19         0.14
+kurtosis               5.95           0.39         5.88
+information_ratio      0.03           0.01         0.03
+alpha                  0.08          -0.04         0.08
+beta                   0.82           1.17         0.83
 
 Worst Drawdown Periods
    net drawdown in %  peak date valley date recovery date duration
@@ -218,7 +237,7 @@ Worst Drawdown Periods
 2-sigma returns weekly   -0.068
 dtype: float64
 </code></pre>
-<p><img alt="png" src="../slippage_example_files/slippage_example_4_1.png" /></p>
+<p><img alt="png" src="../slippage_example_files/slippage_example_6_1.png" /></p>
 <pre><code>Stress Events
                              mean    min    max
 Lehmann                    -0.003 -0.047  0.041
@@ -231,7 +250,7 @@ Low Volatility Bull Market  0.000 -0.061  0.064
 GFC Crash                  -0.001 -0.118  0.101
 Recovery                    0.004 -0.040  0.060
 </code></pre>
-<p><img alt="png" src="../slippage_example_files/slippage_example_4_3.png" /></p>
+<p><img alt="png" src="../slippage_example_files/slippage_example_6_3.png" /></p>
 <pre><code>Top 10 long positions of all time (and max%)
 ['COST' 'DELL' 'CERN' 'MMM' 'INTC' 'AMD' 'GPS']
 [ 0.9    0.857  0.835  0.821  0.786  0.758  0.622]
@@ -251,8 +270,143 @@ All positions ever held
 ['COST' 'DELL' 'CERN' 'MMM' 'INTC' 'AMD' 'GPS']
 [ 0.9    0.857  0.835  0.821  0.786  0.758  0.622]
 </code></pre>
-<p><img alt="png" src="../slippage_example_files/slippage_example_4_5.png" /></p>
-<p><img alt="png" src="../slippage_example_files/slippage_example_4_6.png" /></p></div>
+<p><img alt="png" src="../slippage_example_files/slippage_example_6_5.png" /></p>
+<p><img alt="png" src="../slippage_example_files/slippage_example_6_6.png" /></p>
+<pre><code>Running T model
+ [-----------------100%-----------------] 2000 of 2000 complete in 3.1 sec
+Finished T model (required 33.75 seconds).
+
+Running BEST model
+ [-----------------100%-----------------] 2000 of 2000 complete in 7.8 sec
+Finished BEST model (required 77.04 seconds).
+
+Finished plotting Bayesian cone (required 0.14 seconds).
+
+Finished plotting BEST results (required 1.69 seconds).
+
+Finished computing Bayesian predictions (required 0.25 seconds).
+
+Finished plotting Bayesian VaRs estimate (required 0.07 seconds).
+
+Running alpha beta model
+
+
+/Users/acampbell/anaconda/lib/python2.7/site-packages/matplotlib/axes/_axes.py:475: UserWarning: No labelled objects found. Use label='...' kwarg on individual plots.
+  warnings.warn("No labelled objects found. "
+
+
+
+---------------------------------------------------------------------------
+
+LinAlgError                               Traceback (most recent call last)
+
+&lt;ipython-input-5-0dcbfe2408f4&gt; in &lt;module&gt;()
+      1 pf.create_full_tear_sheet(returns, positions, transactions, gross_lev=gross_lev, 
+----&gt; 2                           slippage=0, sector_mappings=sect_map, live_start_date='2009-9-1', bayesian=True)
+
+
+/Users/acampbell/repo/pyfolio/pyfolio/tears.pyc in create_full_tear_sheet(returns, positions, transactions, benchmark_rets, gross_lev, slippage, live_start_date, sector_mappings, bayesian, round_trips, hide_positions, cone_std, set_context)
+    184                                    live_start_date=live_start_date,
+    185                                    benchmark_rets=benchmark_rets,
+--&gt; 186                                    set_context=set_context)
+    187 
+    188
+
+
+/Users/acampbell/repo/pyfolio/pyfolio/plotting.pyc in call_w_context(*args, **kwargs)
+     44         if set_context:
+     45             with context():
+---&gt; 46                 return func(*args, **kwargs)
+     47         else:
+     48             return func(*args, **kwargs)
+
+
+/Users/acampbell/repo/pyfolio/pyfolio/tears.pyc in create_bayesian_tear_sheet(returns, benchmark_rets, live_start_date, samples, return_fig, stoch_vol)
+    822     trace_alpha_beta = bayesian.run_model('alpha_beta', df_train,
+    823                                           bmark=benchmark_rets,
+--&gt; 824                                           samples=samples)
+    825     previous_time = timer("running alpha beta model", previous_time)
+    826
+
+
+/Users/acampbell/repo/pyfolio/pyfolio/bayesian.pyc in run_model(model, returns_train, returns_test, bmark, samples, ppc)
+    575     if model == 'alpha_beta':
+    576         model, trace = model_returns_t_alpha_beta(returns_train,
+--&gt; 577                                                   bmark, samples)
+    578     elif model == 't':
+    579         model, trace = model_returns_t(returns_train, samples)
+
+
+/Users/acampbell/repo/pyfolio/pyfolio/bayesian.pyc in model_returns_t_alpha_beta(data, bmark, samples)
+     83         X['ones'] = np.ones(len(X))
+     84         y = data_no_missing
+---&gt; 85         alphabeta_init = np.linalg.lstsq(X, y)[0]  # [:2]
+     86 
+     87         alpha_reg = pm.Normal('alpha', mu=0, sd=.1, testval=alphabeta_init[-1])
+
+
+/Users/acampbell/anaconda/lib/python2.7/site-packages/numpy/linalg/linalg.pyc in lstsq(a, b, rcond)
+   1872     if is_1d:
+   1873         b = b[:, newaxis]
+-&gt; 1874     _assertRank2(a, b)
+   1875     m  = a.shape[0]
+   1876     n  = a.shape[1]
+
+
+/Users/acampbell/anaconda/lib/python2.7/site-packages/numpy/linalg/linalg.pyc in _assertRank2(*arrays)
+    194         if len(a.shape) != 2:
+    195             raise LinAlgError('%d-dimensional array given. Array must be '
+--&gt; 196                     'two-dimensional' % len(a.shape))
+    197 
+    198 def _assertRankAtLeast2(*arrays):
+
+
+LinAlgError: 1-dimensional array given. Array must be two-dimensional
+</code></pre>
+<p><img alt="png" src="../slippage_example_files/slippage_example_6_10.png" /></p>
+<pre><code class="python">reload(pf.tears)
+</code></pre>
+
+<pre><code>&lt;module 'pyfolio.tears' from '/Users/acampbell/repo/pyfolio/pyfolio/tears.py'&gt;
+</code></pre>
+<pre><code class="python">pf.create_bayesian_tear_sheet(returns, stoch_vol=True, live_start_date='2009-9-1')
+</code></pre>
+
+<pre><code>Running T model
+ [-----------------100%-----------------] 2000 of 2000 complete in 3.1 sec
+Finished T model (required 31.72 seconds).
+
+Running BEST model
+ [-----------------100%-----------------] 2000 of 2000 complete in 5.6 sec
+Finished BEST model (required 45.27 seconds).
+
+Finished plotting Bayesian cone (required 0.13 seconds).
+
+Finished plotting BEST results (required 0.67 seconds).
+
+Finished computing Bayesian predictions (required 0.12 seconds).
+
+Finished plotting Bayesian VaRs estimate (required 0.05 seconds).
+
+Running alpha beta model
+ [-----------------100%-----------------] 2000 of 2000 complete in 3.5 sec
+Finished running alpha beta model (required 58.10 seconds).
+
+Finished plotting alpha beta model (required 0.17 seconds).
+
+Running stochastic volatility model on most recent 400 days of returns.
+
+Finished running stochastic volatility model (required 113.55 seconds).
+
+Plotting stochastic volatility model
+
+Finished plotting stochastic volatility model (required 0.27 seconds).
+
+Total runtime was 250.06 seconds.
+</code></pre>
+<p><img alt="png" src="../slippage_example_files/slippage_example_8_1.png" /></p>
+<pre><code class="python">
+</code></pre></div>
             
         </div>
 
