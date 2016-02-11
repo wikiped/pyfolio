@@ -667,6 +667,23 @@ def create_interesting_times_tear_sheet(
     if return_fig:
         return fig
 
+@plotting_context
+def create_capacity_tear_sheet(returns, positions, transactions, market_data):
+    vol_analysis = capacity.get_hold_time_dollar_volume(positions, market_data)
+
+    display(vol_analysis.sort('algo_max_exposure_pct', ascending=False).head())
+
+    print('Most Liquid Names:')
+    display(vol_analysis.sort('avg_daily_dollar_volume', ascending=False).head(5))
+    print('Least Liquid Names:')
+    display(vol_analysis.sort('avg_daily_dollar_volume', ascending=True).head(8))
+
+    constraint_tickers = pd.DataFrame()
+    for name, d in constraints.dropna(axis=0).iteritems():
+        const = d.min()
+        constraint_tickers.loc[name, 'Algo Capacity $ Millions'] = d.min()
+        constraint_tickers.loc[name, 'Constraining Ticker'] = d.argmin()
+    display(constraint_tickers)
 
 @plotting_context
 def create_bayesian_tear_sheet(returns, benchmark_rets=None,
