@@ -1,5 +1,5 @@
 #
-# Copyright 2015 Quantopian, Inc.
+# Copyright 2016 Quantopian, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -1102,8 +1102,8 @@ def rolling_sharpe(returns, rolling_sharpe_window):
     See https://en.wikipedia.org/wiki/Sharpe_ratio for more details.
     """
 
-    return pd.rolling_mean(returns, rolling_sharpe_window) \
-        / pd.rolling_std(returns, rolling_sharpe_window) \
+    return returns.rolling(rolling_sharpe_window).mean() \
+        / returns.rolling(rolling_sharpe_window).std() \
         * np.sqrt(APPROX_BDAYS_PER_YEAR)
 
 

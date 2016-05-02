@@ -1,5 +1,5 @@
 #
-# Copyright 2015 Quantopian, Inc.
+# Copyright 2016 Quantopian, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,8 +31,10 @@ from . import timeseries
 from . import pos
 from . import _seaborn as sns
 from . import txn
+from . import capacity
 
-from .utils import APPROX_BDAYS_PER_MONTH
+from .utils import (APPROX_BDAYS_PER_MONTH,
+                    MM_DISPLAY_UNIT)
 
 from functools import wraps
 
@@ -191,8 +193,7 @@ def plot_monthly_returns_heatmap(returns, ax=None, **kwargs):
 
     monthly_ret_table = timeseries.aggregate_returns(returns,
                                                      'monthly')
-    monthly_ret_table = monthly_ret_table.unstack()
-    monthly_ret_table = np.round(monthly_ret_table, 3)
+    monthly_ret_table = monthly_ret_table.unstack().round(3)
 
     sns.heatmap(
         monthly_ret_table.fillna(0) *
@@ -346,7 +347,7 @@ def plot_holdings(returns, positions, legend_loc='best', ax=None, **kwargs):
 
     positions = positions.copy().drop('cash', axis='columns')
     df_holdings = positions.apply(lambda x: np.sum(x != 0), axis='columns')
-    df_holdings_by_month = df_holdings.resample('1M', how='mean')
+    df_holdings_by_month = df_holdings.resample('1M').mean()
     df_holdings.plot(color='steelblue', alpha=0.6, lw=0.5, ax=ax, **kwargs)
     df_holdings_by_month.plot(
         color='orangered',
@@ -491,7 +492,7 @@ def plot_perf_stats(returns, factor_returns, ax=None):
                                                        return_stats=False)
     bootstrap_values = bootstrap_values.drop('kurtosis', axis='columns')
 
-    sns.boxplot(bootstrap_values, orient='h', ax=ax)
+    sns.boxplot(data=bootstrap_values, orient='h', ax=ax)
 
     return ax
 
@@ -534,13 +535,13 @@ def show_perf_stats(returns, factor_returns, live_start_date=None,
         returns_backtest = returns[returns.index < live_start_date]
         returns_live = returns[returns.index > live_start_date]
 
-        perf_stats_live = np.round(perf_func(
+        perf_stats_live = perf_func(
             returns_live,
-            factor_returns=factor_returns), 2)
+            factor_returns=factor_returns)
 
-        perf_stats_all = np.round(perf_func(
+        perf_stats_all = perf_func(
             returns,
-            factor_returns=factor_returns), 2)
+            factor_returns=factor_returns)
 
         print('Out-of-Sample Months: ' +
               str(int(len(returns_live) / APPROX_BDAYS_PER_MONTH)))
@@ -550,9 +551,9 @@ def show_perf_stats(returns, factor_returns, live_start_date=None,
     print('Backtest Months: ' +
           str(int(len(returns_backtest) / APPROX_BDAYS_PER_MONTH)))
 
-    perf_stats = np.round(perf_func(
+    perf_stats = perf_func(
         returns_backtest,
-        factor_returns=factor_returns), 2)
+        factor_returns=factor_returns)
 
     if live_start_date is not None:
         perf_stats = pd.concat(OrderedDict([
@@ -560,13 +561,64 @@ def show_perf_stats(returns, factor_returns, live_start_date=None,
             ('Out of sample', perf_stats_live),
             ('All history', perf_stats_all),
         ]), axis=1)
+    else:
+        perf_stats = pd.DataFrame(perf_stats, columns=['Backtest'])
 
-    print(perf_stats)
+    utils.print_table(perf_stats, name='Performance statistics',
+                      fmt='{0:.2f}')
+
+
+def plot_returns(returns,
+                 live_start_date=None,
+                 ax=None):
+    """
+    Plots raw returns over time.
+
+    Backtest returns are in green, and out-of-sample (live trading)
+    returns are in red.
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Daily returns of the strategy, noncumulative.
+         - See full explanation in tears.create_full_tear_sheet.
+    live_start_date : datetime, optional
+        The date when the strategy began live trading, after
+        its backtest period. This date should be normalized.
+    ax : matplotlib.Axes, optional
+        Axes upon which to plot.
+    **kwargs, optional
+        Passed to plotting function.
+
+    Returns
+    -------
+    ax : matplotlib.Axes
+        The axes that were plotted on.
+
+    """
+
+    if ax is None:
+        ax = plt.gca()
+
+    ax.set(xlabel='', ylabel='Returns')
+
+    if live_start_date is not None:
+        live_start_date = utils.get_utc_timestamp(live_start_date)
+        is_returns = returns.loc[returns.index < live_start_date]
+        oos_returns = returns.loc[returns.index >= live_start_date]
+        is_returns.plot(ax=ax, color='g')
+        oos_returns.plot(ax=ax, color='r')
+
+    else:
+        returns.plot(ax=ax, color='g')
+
+    return ax
 
 
 def plot_rolling_returns(returns,
                          factor_returns=None,
                          live_start_date=None,
+                         logy=False,
                          cone_std=None,
                          legend_loc='best',
                          volatility_match=False,
@@ -592,6 +644,8 @@ def plot_rolling_returns(returns,
     live_start_date : datetime, optional
         The date when the strategy began live trading, after
         its backtest period. This date should be normalized.
+    logy : bool, optional
+        Whether to log-scale the y-axis.
     cone_std : float, or tuple, optional
         If float, The standard deviation to use for the cone plots.
         If tuple, Tuple of standard deviation values to use for the cone plots
@@ -620,12 +674,12 @@ def plot_rolling_returns(returns,
     ax : matplotlib.Axes
         The axes that were plotted on.
 
-"""
+    """
     if ax is None:
         ax = plt.gca()
 
-    ax.set_ylabel('Cumulative returns')
-    ax.set_xlabel('')
+    ax.set(xlabel='', ylabel='Cumulative returns',
+           yscale='log' if logy else 'linear')
 
     if volatility_match and factor_returns is None:
         raise ValueError('volatility_match requires passing of'
@@ -907,28 +961,23 @@ def show_and_plot_top_positions(returns, positions_alloc,
         positions_alloc)
 
     if show_and_plot == 1 or show_and_plot == 2:
-        print("\n")
-        print('Top 10 long positions of all time (and max%)')
-        print(pd.DataFrame(df_top_long).index.values)
-        print(np.round(pd.DataFrame(df_top_long)[0].values, 3))
-        print("\n")
+        utils.print_table(pd.DataFrame(df_top_long * 100, columns=['max']),
+                          fmt='{0:.2f}%',
+                          name='Top 10 long positions of all time')
 
-        print('Top 10 short positions of all time (and max%)')
-        print(pd.DataFrame(df_top_short).index.values)
-        print(np.round(pd.DataFrame(df_top_short)[0].values, 3))
-        print("\n")
+        utils.print_table(pd.DataFrame(df_top_short * 100, columns=['max']),
+                          fmt='{0:.2f}%',
+                          name='Top 10 short positions of all time')
 
-        print('Top 10 positions of all time (and max%)')
-        print(pd.DataFrame(df_top_abs).index.values)
-        print(np.round(pd.DataFrame(df_top_abs)[0].values, 3))
-        print("\n")
+        utils.print_table(pd.DataFrame(df_top_abs * 100, columns=['max']),
+                          fmt='{0:.2f}%',
+                          name='Top 10 positions of all time')
 
         _, _, df_top_abs_all = pos.get_top_long_short_abs(
             positions_alloc, top=9999)
-        print('All positions ever held')
-        print(pd.DataFrame(df_top_abs_all).index.values)
-        print(np.round(pd.DataFrame(df_top_abs_all)[0].values, 3))
-        print("\n")
+        utils.print_table(pd.DataFrame(df_top_abs_all * 100, columns=['max']),
+                          fmt='{0:.2f}%',
+                          name='All positions ever held')
 
     if show_and_plot == 0 or show_and_plot == 2:
 
@@ -1092,7 +1141,7 @@ def show_return_range(returns, df_weekly):
                           index=['2-sigma returns daily',
                                  '2-sigma returns weekly'])
 
-    print(np.round(var_sigma.values, 3))
+    print(var_sigma.round(3).values)
 
 
 def plot_turnover(returns, transactions, positions,
@@ -1260,6 +1309,38 @@ def plot_slippage_sensitivity(returns, transactions, positions,
     return ax
 
 
+def plot_capacity_sweep(returns, transactions, market_data,
+                        bt_starting_capital,
+                        min_pv=100000,
+                        max_pv=300000000,
+                        step_size=1000000,
+                        ax=None):
+    txn_daily_w_bar = capacity.daily_txns_with_bar_data(transactions,
+                                                        market_data)
+
+    captial_base_sweep = pd.Series()
+    for start_pv in range(min_pv, max_pv, step_size):
+        adj_ret = capacity.apply_slippage_penalty(returns,
+                                                  txn_daily_w_bar,
+                                                  start_pv,
+                                                  bt_starting_capital)
+        sharpe = timeseries.sharpe_ratio(adj_ret)
+        if sharpe < -1:
+            break
+        captial_base_sweep.loc[start_pv] = sharpe
+    captial_base_sweep.index = captial_base_sweep.index / MM_DISPLAY_UNIT
+
+    if ax is None:
+        ax = plt.gca()
+
+    captial_base_sweep.plot(ax=ax)
+    ax.set(xlabel='Capital Base ($mm)',
+           ylabel='Sharpe Ratio',
+           title='Capital Base Performance Sweep')
+
+    return ax
+
+
 def plot_daily_turnover_hist(transactions, positions,
                              ax=None, **kwargs):
     """Plots a histogram of daily turnover rates.
@@ -1392,11 +1473,10 @@ def show_worst_drawdown_periods(returns, top=5):
 
     """
 
-    print('\nWorst Drawdown Periods')
     drawdown_df = timeseries.gen_drawdown_table(returns, top=top)
-    drawdown_df['net drawdown in %'] = list(
-        map(utils.round_two_dec_places, drawdown_df['net drawdown in %']))
-    print(drawdown_df.sort('net drawdown in %', ascending=False))
+    utils.print_table(drawdown_df.sort_values('net drawdown in %',
+                                              ascending=False),
+                      name='Worst Drawdown Periods', fmt='{0:.2f}')
 
 
 def plot_monthly_returns_timeseries(returns, ax=None, **kwargs):
@@ -1516,8 +1596,11 @@ def show_profit_attribution(round_trips):
     pct_profit_attribution = round_trips.groupby(
         'symbol')['pnl'].sum() / total_pnl
 
-    print('\nProfitability (PnL / PnL total) per name:')
-    print(pct_profit_attribution.sort(inplace=False, ascending=False))
+    utils.print_table(pct_profit_attribution.sort_values(
+        inplace=False,
+        ascending=False),
+        name='Profitability (PnL / PnL total) per name',
+        fmt='{0:.2f}%')
 
 
 def plot_prob_profit_trade(round_trips, ax=None):

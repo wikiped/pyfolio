@@ -1,5 +1,5 @@
 #
-# Copyright 2015 Quantopian, Inc.
+# Copyright 2016 Quantopian, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,8 +165,8 @@ def get_turnover(positions, transactions, period=None, average=True):
     traded_value = txn_vol.txn_volume
     portfolio_value = positions.sum(axis=1)
     if period is not None:
-        traded_value = traded_value.resample(period, how='sum')
-        portfolio_value = portfolio_value.resample(period, how='mean')
+        traded_value = traded_value.resample(period).sum()
+        portfolio_value = portfolio_value.resample(period).mean()
     # traded_value contains the summed value from buys and sells;
     # this is divided by 2.0 to get the average of the two.
     turnover = traded_value / 2.0 if average else traded_value
