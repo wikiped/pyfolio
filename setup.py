@@ -73,6 +73,4 @@ if __name__ == "__main__":
         classifiers=classifiers,
         install_requires=install_reqs,
         extras_requires=extras_reqs,
-        tests_require=test_reqs,
-        test_suite='nose.collector',
     )
